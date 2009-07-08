@@ -4,7 +4,7 @@
   <RDF:Description RDF:about="urn:mozilla:install-manifest"
                    em:id="hateBUZZ@snaka.openid.ne.jp"
                    em:name="hateBUZZ!"
-                   em:version="0.0.1"
+                   em:version="0.0.2"
                    em:creator="snaka.gml@gmail.com"
                    em:homepageURL="http://d.hatena.ne.jp/snaka72/">
     <em:targetApplication>

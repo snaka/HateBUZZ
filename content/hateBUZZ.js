@@ -1,4 +1,6 @@
-// need this?
+//
+// HateBUZZ   - tweet Hatebu users about current page -
+//
 window.HateBUZZ = (function() {
 
     // CONFIGURATION ///////////////////////////////////////////////////////////
@@ -6,8 +8,7 @@ window.HateBUZZ = (function() {
     const config = {
       MAX_ITEMS:  5,
       BUZZ_ONCE:  true,
-      DELAY:      3,   // sec.
-      USER:       "snaka72"
+      DELAY:      0   // sec.
     }
 
     // CLASS  /////////////////////////////////////////////////////////////////
@@ -23,42 +24,33 @@ window.HateBUZZ = (function() {
         eachBookmark: function(proc) {
             debug("Hatebu#eachBookmark");
 
-            var cachedData = eval(getValue(currentURL(), null));
+            var cachedData = evalInSandbox(getValue(this.url));
+            debug("cached : " + cachedData);
+
             if (cachedData) {
-                debug("Hit the cached content : " + currentURL());
-                this._processForBookmarks(cachedData.bookmarks, proc);
+                debug("Hit the cached content : " + this.url);
+                debug(cachedData);
+                debug(cachedData.bookmarks.toSource());
+                pickupCommentsUpto(config.MAX_ITEMS, cachedData.bookmarks, proc);
                 setValue(currentURL(), cachedData.toSource());
                 return;
             }
 
-            debug("Cache not exists. so request to host:" + currentURL());
+            debug("Cache not exists. so request to host:" + this.url);
             var that = this;
             xmlhttpRequest({
                 method: "GET",
-                url: "http://b.hatena.ne.jp/entry/json/"+ currentURL(),
+                url: "http://b.hatena.ne.jp/entry/json/"+ this.url,
                 onload: function(data) {
                     debug("onload!!!!!!!");
-                    var sandBox = new Components.utils.Sandbox("about:blank");
-                    var json = Components.utils.evalInSandbox(data.responseText, sandBox);
-
-                    //debug(data.responseText);
-                    //var json = window.eval(data.responseText);
-                    //var json = JSON.parse(data.responseText);
-                    debug(json);
+                    debug(data.responseText);
+                    var json = evalInSandbox(data.responseText);
 
                     if (!json.bookmarks) return;
                     debug("json: " + json.bookmarks);
 
-                    that._processForBookmarks(json.bookmarks, proc);
-                    setValue(currentURL(), json.toSource());
-                }
-            });
-        },
-
-        _processForBookmarks: function(bookmarks, proc) {
-            shuffle(config.MAX_ITEMS, bookmarks, function(bookmark) {
-                if (bookmark.comment.length > 0) {
-                    proc(bookmark);
+                    pickupCommentsUpto(config.MAX_ITEMS, json.bookmarks, proc);
+                    setValue(that.url, json.toSource());
                 }
             });
         }
@@ -66,18 +58,31 @@ window.HateBUZZ = (function() {
 
     // PRIVATE /////////////////////////////////////////////////////////////////
 
-    function setValue(name, value)
-      globalStorage[currentURL()][name] = value;
+    function evalInSandbox(exp) {
+      var result = null;
+      try {
+        result = Components.utils.evalInSandbox(exp, Components.utils.Sandbox(content));
+      } catch(ex) { }
+      return result;
+    }
 
-    function getValue(name)
-      globalStorage[currentURL()][name];
+    function setValue(url, value) {
+      debug(<>
+##### {url} ##### {(value || '').substring(0, 10)} #####
+</>);
+      globalStorage[url]['HateBUZZ'] = value;
+    }
+
+    function getValue(url)
+      (globalStorage[url]['HateBUZZ'] || {value: null}).value;
+
+    function resetValue(url)
+      setValue(url, null);
 
     function xmlhttpRequest(options) {
       let req = new XMLHttpRequest();
       req.open(options.method, options.url, true);
       req.onreadystatechange = function(event) {
-        debug("readystatecahnge:" + req.readyState);
-        debug("status " + req.status);
         if (req.readyState == 4 &&
             req.status == 200) {
           options.onload(req);
@@ -90,6 +95,7 @@ window.HateBUZZ = (function() {
                           .getService(Components.interfaces.nsIAlertsService);
 
     function notify(title, text, iconURL) {
+      debug(<>{title} : {text}</>);
       alertService.showAlertNotification(iconURL, title, text);
     }
 
@@ -97,15 +103,17 @@ window.HateBUZZ = (function() {
         return window.content.location.href;
     }
 
-    function shuffle(count, arr, func) {
+    function pickupCommentsUpto(count, arr, func) {
         arr = config.BUZZ_ONCE ? arr : arrayCopy(arr);
         if (!arr) return;
 
         for(var i = 0; arr.length > 0 && i < count;) {
             var index = Math.floor(Math.random() * arr.length);
             var pick = (arr.splice(index, 1))[0];
-            if (pick.comment.length == 0)
+            if (pick.comment.length == 0) {
+                debug(<>{pick.user} -- skip this!!!</>);
                 continue;
+            }
             setTimeout(func, i++ * 1000, pick);
         }
     }
@@ -115,29 +123,17 @@ window.HateBUZZ = (function() {
     }
 
     function debug(msg) {
-        DEBUG && dump("$$$ debug $$$: " + msg + "\n");
+        DEBUG && (msg instanceof XML
+            ? dump("$$$ debug $$$: " + msg.toString() + "\n")
+            : dump("$$$ debug $$$: " + msg + "\n")
+        );
     }
-
-  getBrowser().addEventListener("load", function(event) {
-      let doc = event.originalTarget;
-
-      if (!(doc instanceof HTMLDocument)) return;
-      if (doc.defaultView.frameElement) return;
-      if (currentURL().match(/^about/)) return;
-
-      window.setTimeout(function() {
-        HateBUZZ.buzz(doc.location.href);
-      }, config.DELAY * 1000);
-
-      debug("--- setTimeout: " + currentURL());
-  }, true);
 
   const self = {
     hatebu: {},
 
-    buzz: function() {
-      debug("@@@ HateBUZZ.buzz");
-      this.hatebu = new Hatebu(config.USER);
+    buzz: function(url) {
+      this.hatebu = new Hatebu(url);
       this.hatebu.eachBookmark(function(bookmark) {
           notify(
             bookmark.user,
@@ -149,6 +145,28 @@ window.HateBUZZ = (function() {
 
     setValue: setValue,
     getValue: getValue,
+    clearCache: resetValue,
+    evalInSandbox: evalInSandbox,
+    config: config
   }
   return self;
 })();
+
+// regster event
+getBrowser().addEventListener("load", function(event) {
+  let doc = event.originalTarget;
+  let href = doc.location.href;
+
+  if (!(doc instanceof HTMLDocument)) return;
+  if (doc.defaultView.frameElement) return;
+  if (href.match(/^about/)) return;
+
+  window.setTimeout(
+    function(href) {
+      HateBUZZ.buzz(href);
+    },
+    HateBUZZ.config.DELAY * 1000,
+    href
+  );
+}, true);
+
