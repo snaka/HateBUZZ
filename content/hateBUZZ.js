@@ -8,7 +8,7 @@ window.HateBUZZ = (function() {
     const config = {
       MAX_ITEMS:  5,
       BUZZ_ONCE:  true,
-      DELAY:      0   // sec.
+      DELAY:      3   // sec.
     }
 
     // CLASS  /////////////////////////////////////////////////////////////////
@@ -56,6 +56,45 @@ window.HateBUZZ = (function() {
         }
     };
 
+    // Growler object (singleton)
+    const Growler = (function() {
+
+      if (navigator.platform == 'Win32' && isGrowlInstalled()) {
+        // for Windows
+        alert("win");
+        let growl = Components.classes['@growlforwindows.com/growlgntp;1']
+                    .getService().wrappedJSObject;
+        growl.register(
+          'HateBUZZ',
+          'http://www.hatena.ne.jp/images/top/side_b.gif',
+          [{name: 'notify', displayName: 'notify'}]
+        );
+        return {
+          notify: function(title, text, iconURL) {
+            growl.notify( 'HateBUZZ', 'notify', title, text, iconURL);
+          }
+        };
+      }
+      else if (navigator.platform == 'MacUnix') {
+        // for Mac
+        let alertService = Components.classes["@mozilla.org/alerts-service;1"]
+                          .getService(Components.interfaces.nsIAlertsService);
+        return {
+          notify: function(title, text, iconURL) {
+            alertService.showAlertNotification(iconURL, title, text);
+          }
+        };
+      }
+
+      function isGrowlInstalled()
+        Application.extensions.has('growlgntp@brian.dunnington');
+
+      return {
+        notify: function(){}
+      };
+    })();
+
+
     // PRIVATE /////////////////////////////////////////////////////////////////
 
     function evalInSandbox(exp) {
@@ -67,9 +106,7 @@ window.HateBUZZ = (function() {
     }
 
     function setValue(url, value) {
-      debug(<>
-##### {url} ##### {(value || '').substring(0, 10)} #####
-</>);
+      debug(<>##### {url} ##### {(value || '').substring(0, 10)} #####</>);
       globalStorage[url]['HateBUZZ'] = value;
     }
 
@@ -91,13 +128,6 @@ window.HateBUZZ = (function() {
       req.send(null);
     }
 
-    const alertService = Components.classes["@mozilla.org/alerts-service;1"]
-                          .getService(Components.interfaces.nsIAlertsService);
-
-    function notify(title, text, iconURL) {
-      debug(<>{title} : {text}</>);
-      alertService.showAlertNotification(iconURL, title, text);
-    }
 
     function currentURL() {
         return window.content.location.href;
@@ -135,7 +165,7 @@ window.HateBUZZ = (function() {
     buzz: function(url) {
       this.hatebu = new Hatebu(url);
       this.hatebu.eachBookmark(function(bookmark) {
-          notify(
+          Growler.notify(
             bookmark.user,
             bookmark.comment,
             Hatebu.getUserIcon(bookmark.user)
@@ -155,6 +185,8 @@ window.HateBUZZ = (function() {
 // regster event
 getBrowser().addEventListener("load", function(event) {
   let doc = event.originalTarget;
+  if (!doc.location) return;
+
   let href = doc.location.href;
 
   if (!(doc instanceof HTMLDocument)) return;

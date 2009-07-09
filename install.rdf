@@ -3,8 +3,9 @@
          xmlns:RDF="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
   <RDF:Description RDF:about="urn:mozilla:install-manifest"
                    em:id="hateBUZZ@snaka.openid.ne.jp"
-                   em:name="hateBUZZ!"
-                   em:version="0.0.2"
+                   em:name="HateBUZZ!"
+                   em:description="Hatebu user tweets about current page."
+                   em:version="0.0.3"
                    em:creator="snaka.gml@gmail.com"
                    em:homepageURL="http://d.hatena.ne.jp/snaka72/">
     <em:targetApplication>
