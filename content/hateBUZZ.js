@@ -61,7 +61,6 @@ window.HateBUZZ = (function() {
 
       if (navigator.platform == 'Win32' && isGrowlInstalled()) {
         // for Windows
-        alert("win");
         let growl = Components.classes['@growlforwindows.com/growlgntp;1']
                     .getService().wrappedJSObject;
         growl.register(
@@ -75,7 +74,7 @@ window.HateBUZZ = (function() {
           }
         };
       }
-      else if (navigator.platform == 'MacUnix') {
+      else {
         // for Mac
         let alertService = Components.classes["@mozilla.org/alerts-service;1"]
                           .getService(Components.interfaces.nsIAlertsService);
